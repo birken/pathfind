@@ -14,7 +14,7 @@ inline void IndexToCoordinate(const int nIndex, const int nWidth, int& nOutX, in
 	nOutY = nIndex / nWidth;
 }
 
-int BuildPath(const int* Previous, const int nStartIndex, const int nTargetIndex, int* pOutBuffer, const int nOutBufferSize)
+int BuildPath(const unsigned char* Previous, const int nStartIndex, const int nTargetIndex, const int nWidth, const int* XDirections, const int* YDirections, int* pOutBuffer, const int nOutBufferSize)
 {
 	int* pOutEnd = pOutBuffer + nOutBufferSize;
 	int* pOutIterator = pOutBuffer;
@@ -22,7 +22,9 @@ int BuildPath(const int* Previous, const int nStartIndex, const int nTargetIndex
 	int nSteps = 0;
 	while (nCurrent != nTargetIndex)
 	{
-		nCurrent = Previous[nCurrent];
+		int Direction = Previous[nCurrent] - 2;
+		nCurrent -= XDirections[Direction];
+		nCurrent -= nWidth * YDirections[Direction];
 		++nSteps;
 		if (pOutIterator < pOutEnd)
 		{
@@ -59,18 +61,16 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	const int nTotalMapSize = nMapHeight * nMapWidth;
-	const int nTotalNeededMemory = (nTotalMapSize * 2) * sizeof(int) + nTotalMapSize * sizeof(unsigned char);
+	const int nTotalNeededMemory = (nTotalMapSize ) * sizeof(int) + nTotalMapSize * sizeof(unsigned char);
 	unsigned char* pMemoryBuffer = (unsigned char*)malloc(nTotalNeededMemory);
 	unsigned char* pMemoryBufferStack = pMemoryBuffer;
-	int* Previous = (int*)pMemoryBufferStack;
-	pMemoryBufferStack += nTotalMapSize * sizeof(int);
 	int* Queue = (int*)pMemoryBufferStack;
 	pMemoryBufferStack += nTotalMapSize * sizeof(int);
 	unsigned char* pWorkingMap = pMemoryBufferStack;
 	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(unsigned char));
 
 	// Pathfinding from target to start to avoid the need to reverse the out path
-	Previous[nTargetIndex] = nTargetIndex;
+	pWorkingMap[nTargetIndex] = 0;
 	int* pQueueBack = Queue;
 	int* pQueueFront = Queue;
 	*pQueueBack = nTargetIndex;
@@ -102,13 +102,12 @@ int FindPath(const int nStartX, const int nStartY,
 			const int nNeighborIndex = CoordinateToIndex(nNeighborX, nNeighborY, nMapWidth);
 			if (pWorkingMap[nNeighborIndex] == 1 ) // Not visited or in queue
 			{
-				pWorkingMap[nNeighborIndex] = 0;
-				Previous[nNeighborIndex] = nCurrent;
+				pWorkingMap[nNeighborIndex] = nDirection + 2;	// Save direction
 				*pQueueBack = nNeighborIndex;
 				++pQueueBack;
 				if (nNeighborIndex == nStartIndex)	// Did we find our target?
 				{
-					int nOut = BuildPath(Previous, nStartIndex, nTargetIndex, pOutBuffer, nOutBufferSize);
+					int nOut = BuildPath(pWorkingMap, nStartIndex, nTargetIndex, nMapWidth, XDirections, YDirections, pOutBuffer, nOutBufferSize);
 					free( pMemoryBuffer );
 					return nOut;
 				}
