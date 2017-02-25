@@ -1,0 +1,16 @@
+Pathfinder/Release/
+*.vspx
+*.exe
+*.ilk
+*.tlog
+Release/
+
+*.pdb
+*.idb
+*.db
+*.opendb
+*.suo
+Pathfinder/Debug/
+*.vcxproj
+*.filters
+*.user
