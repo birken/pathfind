@@ -1,5 +1,5 @@
 
-
+#include <cstring>
 #include <vector>
 inline int CoordinateToIndex(const int nX, const int nY, const int nWidth)
 {
@@ -60,12 +60,9 @@ int FindPath(const int nStartX, const int nStartY,
 	int* pMemoryBuffer = new int[nTotalMapSize * 2];
 	int* Previous = pMemoryBuffer;
 	int* Queue = pMemoryBuffer + nTotalMapSize;
+	unsigned char* pWorkingMap = new unsigned char[nTotalMapSize];
+	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(unsigned char));
 
-	// Mark walls directly in Previous buffer
-	for (int i = 0; i < nTotalMapSize; ++i)
-	{
-		Previous[i] = pMap[i] == 1 ? -1 : -2;
-	}
 	// Pathfinding from target to start to avoid the need to reverse the out path
 	Previous[nTargetIndex] = nTargetIndex;
 	int* pQueueBack = Queue;
@@ -97,8 +94,9 @@ int FindPath(const int nStartX, const int nStartY,
 				continue;
 			}
 			const int nNeighborIndex = CoordinateToIndex(nNeighborX, nNeighborY, nMapWidth);
-			if (Previous[nNeighborIndex] == -1) // Not visited or in queue
+			if (pWorkingMap[nNeighborIndex] == 1 ) // Not visited or in queue
 			{
+				pWorkingMap[nNeighborIndex] = 0;
 				Previous[nNeighborIndex] = nCurrent;
 				*pQueueBack = nNeighborIndex;
 				++pQueueBack;
@@ -106,6 +104,7 @@ int FindPath(const int nStartX, const int nStartY,
 				{
 					int nOut = BuildPath(Previous, nStartIndex, nTargetIndex, pOutBuffer, nOutBufferSize);
 					delete[] pMemoryBuffer;
+					delete[] pWorkingMap;
 					return nOut;
 				}
 			}
@@ -113,6 +112,7 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	// Queue empty and path not found
+	delete[] pWorkingMap;
 	delete[] pMemoryBuffer;
 	return -1;
 }
