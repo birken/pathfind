@@ -12,7 +12,7 @@ inline void IndexToCoordinate(const int nIndex, const int nWidth, int& nOutX, in
 	nOutY = nIndex / nWidth;
 }
 
-int BuildPath(const std::vector<int>& Previous, const int nStartIndex, const int nTargetIndex, int* pOutBuffer, const int nOutBufferSize)
+int BuildPath(const int* Previous, const int nStartIndex, const int nTargetIndex, int* pOutBuffer, const int nOutBufferSize)
 {
 	int* pOutEnd = pOutBuffer + nOutBufferSize;
 	int* pOutIterator = pOutBuffer;
@@ -57,32 +57,28 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	const int nTotalMapSize = nMapHeight * nMapWidth;
-	std::vector<int> Previous;
-	Previous.reserve(nTotalMapSize);
-	std::vector<int> Queue;
-	Queue.reserve(nTotalMapSize);
+	int* pMemoryBuffer = new int[nTotalMapSize * 2];
+	int* Previous = pMemoryBuffer;
+	int* Queue = pMemoryBuffer + nTotalMapSize;
+
 	// Mark walls directly in Previous buffer
 	for (int i = 0; i < nTotalMapSize; ++i)
 	{
-		if (pMap[i] == 1)
-		{
-			Previous.push_back( -1 );
-		}
-		else
-		{
-			Previous.push_back(-2);
-		}
+		Previous[i] = pMap[i] == 1 ? -1 : -2;
 	}
 	// Pathfinding from target to start to avoid the need to reverse the out path
 	Previous[nTargetIndex] = nTargetIndex;
-	Queue.push_back(nTargetIndex);
-	unsigned int nQueueFront = 0;
-	int XDirections[] = { 0, -1, 1, 0 };
-	int YDirections[] = { -1, 0, 0, 1 };
+	int* pQueueBack = Queue;
+	int* pQueueFront = Queue;
+	*pQueueBack = nTargetIndex;
+	++pQueueBack;
+	int XDirections[] = { -1, 1, 0, 0 };
+	int YDirections[] = { 0, 0, -1, 1 };
 
-	while (nQueueFront < Queue.size())
+	while (pQueueFront < pQueueBack)
 	{
-		const int nCurrent = Queue[nQueueFront++];
+		const int nCurrent = *pQueueFront;
+		++pQueueFront;
 		int nCurrentX;
 		int nCurrentY;
 		IndexToCoordinate(nCurrent, nMapWidth, nCurrentX, nCurrentY);
@@ -101,19 +97,22 @@ int FindPath(const int nStartX, const int nStartY,
 				continue;
 			}
 			const int nNeighborIndex = CoordinateToIndex(nNeighborX, nNeighborY, nMapWidth);
-			const int nNeighborPrevious = Previous[nNeighborIndex];
 			if (Previous[nNeighborIndex] == -1) // Not visited or in queue
 			{
 				Previous[nNeighborIndex] = nCurrent;
-				Queue.push_back(nNeighborIndex);
+				*pQueueBack = nNeighborIndex;
+				++pQueueBack;
 				if (nNeighborIndex == nStartIndex)	// Did we find our target?
 				{
-					return BuildPath(Previous, nStartIndex, nTargetIndex, pOutBuffer, nOutBufferSize);
+					int nOut = BuildPath(Previous, nStartIndex, nTargetIndex, pOutBuffer, nOutBufferSize);
+					delete[] pMemoryBuffer;
+					return nOut;
 				}
 			}
 		}
 	}
 
 	// Queue empty and path not found
+	delete[] pMemoryBuffer;
 	return -1;
 }
