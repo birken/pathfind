@@ -1,6 +1,8 @@
 
 #include <cstring>
 #include <vector>
+#include <stdlib.h>
+
 inline int CoordinateToIndex(const int nX, const int nY, const int nWidth)
 {
 	return nX + nY * nWidth;
@@ -57,10 +59,14 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	const int nTotalMapSize = nMapHeight * nMapWidth;
-	int* pMemoryBuffer = new int[nTotalMapSize * 2];
-	int* Previous = pMemoryBuffer;
-	int* Queue = pMemoryBuffer + nTotalMapSize;
-	unsigned char* pWorkingMap = new unsigned char[nTotalMapSize];
+	const int nTotalNeededMemory = (nTotalMapSize * 2) * sizeof(int) + nTotalMapSize * sizeof(unsigned char);
+	unsigned char* pMemoryBuffer = (unsigned char*)malloc(nTotalNeededMemory);
+	unsigned char* pMemoryBufferStack = pMemoryBuffer;
+	int* Previous = (int*)pMemoryBufferStack;
+	pMemoryBufferStack += nTotalMapSize * sizeof(int);
+	int* Queue = (int*)pMemoryBufferStack;
+	pMemoryBufferStack += nTotalMapSize * sizeof(int);
+	unsigned char* pWorkingMap = pMemoryBufferStack;
 	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(unsigned char));
 
 	// Pathfinding from target to start to avoid the need to reverse the out path
@@ -103,8 +109,7 @@ int FindPath(const int nStartX, const int nStartY,
 				if (nNeighborIndex == nStartIndex)	// Did we find our target?
 				{
 					int nOut = BuildPath(Previous, nStartIndex, nTargetIndex, pOutBuffer, nOutBufferSize);
-					delete[] pMemoryBuffer;
-					delete[] pWorkingMap;
+					free( pMemoryBuffer );
 					return nOut;
 				}
 			}
@@ -112,7 +117,6 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	// Queue empty and path not found
-	delete[] pWorkingMap;
-	delete[] pMemoryBuffer;
+	free( pMemoryBuffer );
 	return -1;
 }
