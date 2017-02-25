@@ -2,6 +2,7 @@
 #include <cstring>
 #include <vector>
 #include <stdlib.h>
+#include <algorithm>
 
 static inline int CoordinateToIndex(const int nX, const int nY, const int nWidth)
 {
@@ -14,13 +15,44 @@ static inline void IndexToCoordinate(const int nIndex, const int nWidth, int& nO
 	nOutY = nIndex / nWidth;
 }
 
-int BuildPath(const unsigned char* Previous, const int nStartIndex, const int nTargetIndex, const int nWidth, const int* XDirections, const int* YDirections, int* pOutBuffer, const int nOutBufferSize)
+int BuildPathTwoWay( const int nFromStart, const int nFromTarget, const char* Previous, const int nStartIndex, const int nTargetIndex, const int nWidth, const int* XDirections, const int* YDirections, int* pOutBuffer, const int nOutBufferSize)
 {
 	int* pOutEnd = pOutBuffer + nOutBufferSize;
 	int* pOutIterator = pOutBuffer;
-	int nCurrent = nStartIndex;
+	// start from nFromStart and go to nStartIndex
+	int nCurrent = nFromStart;
 	int nSteps = 0;
-	while (nCurrent != nTargetIndex)
+	bool bOutBufferOverrun = false;
+	while (nCurrent != nStartIndex)
+	{
+		++nSteps;
+		if (pOutIterator < pOutEnd)
+		{
+			*pOutIterator = nCurrent;
+			++pOutIterator;
+		}
+		else
+		{
+			bOutBufferOverrun = true;
+		}
+		int Direction = -( Previous[nCurrent] ) - 2;
+		nCurrent -= XDirections[Direction];
+		nCurrent -= nWidth * YDirections[Direction];
+	}
+	// reverse path
+	if (!bOutBufferOverrun)
+	{
+		std::reverse(pOutBuffer, pOutIterator);
+	}
+	// start from nFromTarget and go to nTargetIndex, append directly to path
+	nCurrent = nFromTarget;
+	++nSteps;
+	if (pOutIterator < pOutEnd)
+	{
+		*pOutIterator = nCurrent;
+		++pOutIterator;
+	}
+	while (nCurrent != nTargetIndex )
 	{
 		int Direction = Previous[nCurrent] - 2;
 		nCurrent -= XDirections[Direction];
@@ -35,7 +67,7 @@ int BuildPath(const unsigned char* Previous, const int nStartIndex, const int nT
 	return nSteps;
 }
 
-int FindPathBFS(const int nStartX, const int nStartY,
+int FindPath(const int nStartX, const int nStartY,
 	const int nTargetX, const int nTargetY,
 	const unsigned char* pMap, const int nMapWidth, const int nMapHeight,
 	int* pOutBuffer, const int nOutBufferSize)
@@ -61,23 +93,23 @@ int FindPathBFS(const int nStartX, const int nStartY,
 	}
 
 	const int nTotalMapSize = nMapHeight * nMapWidth;
-	const int nTotalNeededMemory = (nTotalMapSize ) * sizeof(int) + nTotalMapSize * sizeof(unsigned char);
+	const int nTotalNeededMemory = (nTotalMapSize) * sizeof(int) + nTotalMapSize * sizeof(unsigned char);
 	unsigned char* pMemoryBuffer = (unsigned char*)malloc(nTotalNeededMemory);
 	unsigned char* pMemoryBufferStack = pMemoryBuffer;
 	int* Queue = (int*)pMemoryBufferStack;
 	pMemoryBufferStack += nTotalMapSize * sizeof(int);
-	unsigned char* pWorkingMap = pMemoryBufferStack;
-	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(unsigned char));
+	char* pWorkingMap = (char*)pMemoryBufferStack;
+	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(char));
 
 	// Pathfinding from target to start to avoid the need to reverse the out path
-	pWorkingMap[nTargetIndex] = 0;
+	pWorkingMap[nTargetIndex] = 2;
+	pWorkingMap[nStartIndex] = -2;
 	int* pQueueBack = Queue;
 	int* pQueueFront = Queue;
-	*pQueueBack = nTargetIndex;
-	++pQueueBack;
+	*pQueueBack++ = nTargetIndex;
+	*pQueueBack++ = nStartIndex;
 	int XDirections[] = { -1, 1, 0, 0 };
 	int YDirections[] = { 0, 0, -1, 1 };
-
 	while (pQueueFront < pQueueBack)
 	{
 		const int nCurrent = *pQueueFront;
@@ -86,6 +118,8 @@ int FindPathBFS(const int nStartX, const int nStartY,
 		int nCurrentY;
 		IndexToCoordinate(nCurrent, nMapWidth, nCurrentX, nCurrentY);
 
+		bool bCurrentFromTarget = pWorkingMap[nCurrent] > 0;
+		int nCurrentSign = bCurrentFromTarget ? 1 : -1;
 		// Search all four neighbors and add to queue
 		for (int nDirection = 0; nDirection < 4; ++nDirection)
 		{
@@ -100,22 +134,28 @@ int FindPathBFS(const int nStartX, const int nStartY,
 				continue;
 			}
 			const int nNeighborIndex = CoordinateToIndex(nNeighborX, nNeighborY, nMapWidth);
-			if (pWorkingMap[nNeighborIndex] == 1 ) // Not visited or in queue
+
+			char NeighborDirection = pWorkingMap[nNeighborIndex];
+			if (NeighborDirection == 1)
 			{
-				pWorkingMap[nNeighborIndex] = nDirection + 2;	// Save direction
+				pWorkingMap[nNeighborIndex] = (nDirection + 2) * nCurrentSign;	// Save direction negative direction if search started from start
 				*pQueueBack = nNeighborIndex;
 				++pQueueBack;
-				if (nNeighborIndex == nStartIndex)	// Did we find our target?
-				{
-					int nOut = BuildPath(pWorkingMap, nStartIndex, nTargetIndex, nMapWidth, XDirections, YDirections, pOutBuffer, nOutBufferSize);
-					free( pMemoryBuffer );
-					return nOut;
-				}
 			}
+			else if ( NeighborDirection != 0 && (NeighborDirection > 0) != bCurrentFromTarget)
+			{
+				int nFromStart = bCurrentFromTarget ? nNeighborIndex : nCurrent;
+				int nFromTarget = bCurrentFromTarget ? nCurrent : nNeighborIndex;
+				// Path found the two searched have met
+				int nOut = BuildPathTwoWay(nFromStart, nFromTarget, pWorkingMap, nStartIndex, nTargetIndex, nMapWidth, XDirections, YDirections, pOutBuffer, nOutBufferSize);
+				free(pMemoryBuffer);
+				return nOut;
+			}
+
 		}
 	}
 
 	// Queue empty and path not found
-	free( pMemoryBuffer );
+	free(pMemoryBuffer);
 	return -1;
 }
