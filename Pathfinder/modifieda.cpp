@@ -3,6 +3,7 @@
 #include <vector>
 #include <stdlib.h>
 #include <algorithm>
+#include <memory>
 
 static inline int CoordinateToIndex(const int nX, const int nY, const int nWidth)
 {
@@ -35,6 +36,15 @@ int BuildPathMA(const unsigned char* Previous, const int nStartIndex, const int 
 	}
 	return nSteps;
 }
+template<typename T>
+struct ArrayDeleter
+{
+	~ArrayDeleter()
+	{
+		delete[] _pArray;
+	}
+	T* _pArray = nullptr;
+};
 
 static inline unsigned int EstimateCost(const int x0, const int y0, const int x1, const int y1)
 {
@@ -82,14 +92,22 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	const int nTotalMapSize = nMapHeight * nMapWidth;
-	const int nTotalNeededMemory = (nTotalMapSize) * sizeof(QueueElement) + nTotalMapSize * sizeof(unsigned char) + nTotalMapSize * sizeof(int);
-	unsigned char* pMemoryBuffer = (unsigned char*)malloc(nTotalNeededMemory);
-	unsigned char* pMemoryBufferStack = pMemoryBuffer;
-	QueueElement* Queue = (QueueElement*)pMemoryBufferStack;
-	pMemoryBufferStack += nTotalMapSize * sizeof(QueueElement);
-	unsigned char* pWorkingMap = pMemoryBufferStack;
-	pMemoryBufferStack += nTotalMapSize * sizeof(unsigned char);
-	unsigned int* pCostMap = (unsigned int*)pMemoryBufferStack;
+//	const int nTotalNeededMemory = (nTotalMapSize) * sizeof(QueueElement) + nTotalMapSize * sizeof(unsigned char) + nTotalMapSize * sizeof(int);
+//	unsigned char* pMemoryBuffer = (unsigned char*)malloc(nTotalNeededMemory);
+//	unsigned char* pMemoryBufferStack = pMemoryBuffer;
+	QueueElement* Queue = (QueueElement*)new unsigned char[nTotalMapSize*sizeof(QueueElement)]; // (QueueElement*)pMemoryBufferStack;
+	ArrayDeleter<unsigned char> QueueDeleter;
+	QueueDeleter._pArray = (unsigned char*)Queue;
+																								//	pMemoryBufferStack += nTotalMapSize * sizeof(QueueElement);
+	unsigned char* pWorkingMap = new unsigned char[nTotalMapSize]; // pMemoryBufferStack;
+	ArrayDeleter<unsigned char> WorkingDeleter;
+	WorkingDeleter._pArray = pWorkingMap;
+
+//	pMemoryBufferStack += nTotalMapSize * sizeof(unsigned char);
+	unsigned int* pCostMap = new unsigned int[nTotalMapSize]; // (unsigned int*)pMemoryBufferStack;
+	ArrayDeleter<unsigned int> CostDeleter;
+	CostDeleter._pArray = pCostMap;
+
 	const unsigned char* pMapIt = pMap;
 	const unsigned char* pMapEnd = pMap + nTotalMapSize;
 	unsigned int* pCostMapIt = pCostMap;
@@ -163,7 +181,6 @@ int FindPath(const int nStartX, const int nStartY,
 					if (nNeighborIndex == nStartIndex)	// Did we find our target?
 					{
 						int nOut = BuildPathMA(pWorkingMap, nStartIndex, nTargetIndex, nMapWidth, XDirections, YDirections, pOutBuffer, nOutBufferSize);
-						free(pMemoryBuffer);
 						return nOut;
 					}
 				}
@@ -172,6 +189,5 @@ int FindPath(const int nStartX, const int nStartY,
 	}
 
 	// Queue empty and path not found
-	free(pMemoryBuffer);
 	return -1;
 }
