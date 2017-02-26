@@ -23,7 +23,7 @@ int BuildPathMA(const unsigned char* Previous, const int nStartIndex, const int 
 	int nSteps = 0;
 	while (nCurrent != nTargetIndex)
 	{
-		int Direction = Previous[nCurrent] - 2;
+		int Direction = Previous[nCurrent];
 		nCurrent -= XDirections[Direction];
 		nCurrent -= nWidth * YDirections[Direction];
 		++nSteps;
@@ -89,9 +89,14 @@ int FindPath(const int nStartX, const int nStartY,
 	pMemoryBufferStack += nTotalMapSize * sizeof(QueueElement);
 	unsigned char* pWorkingMap = pMemoryBufferStack;
 	pMemoryBufferStack += nTotalMapSize * sizeof(unsigned char);
-	std::memcpy(pWorkingMap, pMap, nTotalMapSize * sizeof(unsigned char));
 	unsigned int* pCostMap = (unsigned int*)pMemoryBufferStack;
-	std::memset(pCostMap, -1, nTotalMapSize * sizeof(unsigned int));
+	const unsigned char* pMapIt = pMap;
+	const unsigned char* pMapEnd = pMap + nTotalMapSize;
+	unsigned int* pCostMapIt = pCostMap;
+	while (pMapIt != pMapEnd)
+	{
+		(*pCostMapIt++) = -(*pMapIt++);
+	}
 	// Pathfinding from target to start to avoid the need to reverse the out path
 	pWorkingMap[nTargetIndex] = 0;
 	QueueElement* pQueueBack = Queue + (nTotalMapSize / 2) ;
@@ -100,6 +105,7 @@ int FindPath(const int nStartX, const int nStartY,
 	++pQueueBack;
 	int XDirections[] = { -1, 1, 0, 0 };
 	int YDirections[] = { 0, 0, -1, 1 };
+	int Directions[] = { -1, 1, -nMapWidth, nMapWidth };
 	//int nProcessed = 0;
 	//int nInQueue = 1;
 	//int nMaxQueue = 1;
@@ -113,6 +119,8 @@ int FindPath(const int nStartX, const int nStartY,
 
 		if (Current._nCost > pCostMap[nCurrent])
 			continue;
+
+		unsigned int nCost = Current._nCost + 1;
 
 		int nCurrentX;
 		int nCurrentY;
@@ -131,14 +139,13 @@ int FindPath(const int nStartX, const int nStartY,
 			{
 				continue;
 			}
-			const int nNeighborIndex = CoordinateToIndex(nNeighborX, nNeighborY, nMapWidth);
-			if (pMap[nNeighborIndex] == 1) // not wall
+			const int nNeighborIndex = nCurrent + Directions[nDirection];
+			//if (pMap[nNeighborIndex] == 1) // not wall
 			{
-				unsigned int nCost = Current._nCost + 1;
 				if (nCost < pCostMap[nNeighborIndex])
 				{
 					pCostMap[nNeighborIndex] = nCost;
-					pWorkingMap[nNeighborIndex] = nDirection + 2;	// Save direction
+					pWorkingMap[nNeighborIndex] = nDirection;	// Save direction
 					unsigned int nEstimatedTotalCost = nCost + EstimateCost(nStartX, nStartY, nNeighborX, nNeighborY);
 					if (nEstimatedTotalCost <= Current._nEstimatedTotalCost)
 					{
