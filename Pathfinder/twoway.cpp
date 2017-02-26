@@ -67,7 +67,7 @@ int BuildPathTwoWay( const int nFromStart, const int nFromTarget, const char* Pr
 	return nSteps;
 }
 
-int FindPathTwoWay(const int nStartX, const int nStartY,
+int FindPath2W(const int nStartX, const int nStartY,
 	const int nTargetX, const int nTargetY,
 	const unsigned char* pMap, const int nMapWidth, const int nMapHeight,
 	int* pOutBuffer, const int nOutBufferSize)

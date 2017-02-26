@@ -40,7 +40,6 @@ int FindPathBFS(const int nStartX, const int nStartY,
 	const unsigned char* pMap, const int nMapWidth, const int nMapHeight,
 	int* pOutBuffer, const int nOutBufferSize)
 {
-
 	const int nStartIndex = CoordinateToIndex(nStartX, nStartY, nMapWidth);
 	const int nTargetIndex = CoordinateToIndex(nTargetX, nTargetY, nMapWidth);
 	if (pMap[nStartIndex] != 1)
